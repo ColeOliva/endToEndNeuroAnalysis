@@ -16,6 +16,17 @@ analysis:
   task: stimulus_decoding
   target_label: stimulus_category
 
+preprocessing:
+  l_freq: 1.0
+  h_freq: 40.0
+  notch_freqs: [60.0]
+  resample_hz: 250
+  tmin: -0.2
+  tmax: 0.8
+  baseline: [-0.2, 0.0]
+  event_column: trial_type
+  reference: average
+
 execution:
   run_data_loading: true
   run_preprocessing: true

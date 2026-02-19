@@ -160,6 +160,8 @@ def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) ->
         LOGGER.info("Dry run complete. Use --run-steps to execute implemented steps.")
         return 0
 
+    derivatives_dir = _resolve_path(data_cfg.get("derivatives_dir", "data/derivatives"), project_root)
+
     steps: list[tuple[str, Any, str]] = [
         ("run_preprocessing", run_preprocessing, "Preprocessing"),
         ("run_features", extract_features, "Feature extraction"),
@@ -173,7 +175,16 @@ def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) ->
             continue
         try:
             LOGGER.info("Starting %s...", display_name)
-            step_fn()
+            if config_key == "run_preprocessing":
+                step_result = step_fn(
+                    config=config,
+                    bids_root=bids_root,
+                    derivatives_dir=derivatives_dir,
+                    outputs_dir=outputs_dir,
+                )
+                LOGGER.info("Preprocessing artifacts: %s", step_result)
+            else:
+                step_fn()
             LOGGER.info("Finished %s.", display_name)
         except NotImplementedError as exc:
             LOGGER.error("%s is not implemented yet: %s", display_name, exc)
