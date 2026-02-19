@@ -1,0 +1,53 @@
+selection_status:
+  finalized: false
+  selected_dataset_key: null
+  rationale: "Pick after checking class balance and trial counts."
+
+selection_criteria:
+  - "BIDS-compliant EEG with complete metadata and events.tsv"
+  - "Clear class labels for decoding task"
+  - "Adequate trials per class after cleaning"
+  - "Dataset size feasible for local iteration"
+
+candidate_datasets:
+  - key: openneuro_candidate_1
+    source: OpenNeuro
+    accession: "TBD"
+    modality: EEG
+    task_name: "TBD"
+    bids_root_relative: data/raw/TBD
+    target_label_column: "trial_type"
+    class_labels:
+      - "class_a"
+      - "class_b"
+    planned_subject_filter: "all"
+    planned_run_filter: "all"
+    include: true
+    notes: "Primary candidate. Fill accession and verify events columns."
+
+  - key: openneuro_candidate_2
+    source: OpenNeuro
+    accession: "TBD"
+    modality: EEG
+    task_name: "TBD"
+    bids_root_relative: data/raw/TBD
+    target_label_column: "trial_type"
+    class_labels:
+      - "class_a"
+      - "class_b"
+    planned_subject_filter: "all"
+    planned_run_filter: "all"
+    include: true
+    notes: "Backup candidate if primary has poor class balance."
+
+frozen_analysis_contract:
+  objective: "Decode stimulus category from EEG epochs above chance"
+  metric_primary: "balanced_accuracy"
+  cv_strategy: "StratifiedKFold"
+  cv_folds: 5
+  chance_baseline: "majority_class"
+  report_minimum_outputs:
+    - "class balance table"
+    - "cross-validation metric summary"
+    - "confusion matrix"
+    - "at least one neuro figure (ERP/topomap)"
