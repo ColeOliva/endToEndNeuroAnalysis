@@ -83,6 +83,7 @@ After BIDS-compliant preprocessing and epoch extraction, EEG-derived features (t
 endToEndNeuroAnalysis/
 ├─ README.md
 ├─ configs/
+│  ├─ datasets.yaml
 │  └─ default.yaml
 ├─ report/
 │  ├─ outline.md
@@ -133,3 +134,11 @@ endToEndNeuroAnalysis/
   - `python -m src.main --config configs/default.yaml`
 - Later, when implementations are ready:
   - `python -m src.main --config configs/default.yaml --run-steps`
+
+### Dataset Registry Behavior
+- The runner reads `configs/datasets.yaml` (via `registry.datasets_config` in `configs/default.yaml`).
+- If `selection_status.finalized: true`, it auto-resolves:
+  - `data.bids_root` from selected dataset `bids_root_relative`
+  - `analysis.target_label` from selected dataset `target_label_column`
+- Override registry path when needed:
+  - `python -m src.main --config configs/default.yaml --datasets-config configs/datasets.yaml`

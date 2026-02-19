@@ -2,6 +2,10 @@ project:
   name: endToEndNeuroAnalysis
   random_seed: 42
 
+registry:
+  datasets_config: configs/datasets.yaml
+  prefer_registry_selection: true
+
 data:
   bids_root: data/raw
   derivatives_dir: data/derivatives

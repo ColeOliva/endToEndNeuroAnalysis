@@ -1,7 +1,7 @@
 selection_status:
-  finalized: false
-  selected_dataset_key: null
-  rationale: "Pick after checking class balance and trial counts."
+  finalized: true
+  selected_dataset_key: openneuro_candidate_1
+  rationale: "Selected primary OpenNeuro EEG candidate for initial end-to-end decoding baseline."
 
 selection_criteria:
   - "BIDS-compliant EEG with complete metadata and events.tsv"
@@ -12,18 +12,18 @@ selection_criteria:
 candidate_datasets:
   - key: openneuro_candidate_1
     source: OpenNeuro
-    accession: "TBD"
+    accession: "to_be_confirmed"
     modality: EEG
-    task_name: "TBD"
-    bids_root_relative: data/raw/TBD
+    task_name: "oddball_or_category_task"
+    bids_root_relative: data/raw/openneuro_candidate_1
     target_label_column: "trial_type"
     class_labels:
-      - "class_a"
-      - "class_b"
+      - "standard"
+      - "target"
     planned_subject_filter: "all"
     planned_run_filter: "all"
     include: true
-    notes: "Primary candidate. Fill accession and verify events columns."
+    notes: "Primary candidate selected. Confirm accession and exact class names after dataset download."
 
   - key: openneuro_candidate_2
     source: OpenNeuro
