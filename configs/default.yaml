@@ -30,7 +30,7 @@ preprocessing:
 execution:
   run_data_loading: true
   run_preprocessing: true
-  run_features: true
-  run_modeling: true
-  run_visualization: true
+  run_features: false
+  run_modeling: false
+  run_visualization: false
   dry_run: true

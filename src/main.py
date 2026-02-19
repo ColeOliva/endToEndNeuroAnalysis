@@ -261,11 +261,9 @@ def main() -> int:
         return 2
 
     cfg_dry_run = _step_enabled(config, "dry_run", True)
-    run_steps = args.run_steps and not cfg_dry_run
+    run_steps = bool(args.run_steps)
     if args.run_steps and cfg_dry_run:
-        LOGGER.warning(
-            "--run-steps was provided, but execution.dry_run=true in config. Running in dry-run mode."
-        )
+        LOGGER.info("--run-steps overrides execution.dry_run=true and will execute enabled steps.")
 
     return run_pipeline(config=config, project_root=project_root, run_steps=run_steps)
 

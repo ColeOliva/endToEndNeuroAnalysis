@@ -134,6 +134,9 @@ endToEndNeuroAnalysis/
   - `python -m src.main --config configs/default.yaml`
 - Later, when implementations are ready:
   - `python -m src.main --config configs/default.yaml --run-steps`
+- Execution precedence:
+  - `--run-steps` overrides `execution.dry_run: true` and executes enabled steps.
+  - Default enabled execution steps in `configs/default.yaml`: data loading + preprocessing.
 
 ### Dataset Registry Behavior
 - The runner reads `configs/datasets.yaml` (via `registry.datasets_config` in `configs/default.yaml`).
