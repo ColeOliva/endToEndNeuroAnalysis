@@ -24,7 +24,7 @@ preprocessing:
   tmin: -0.2
   tmax: 0.8
   baseline: [-0.2, 0.0]
-  event_column: trial_type
+  event_column: value
   reference: average
 
 execution:

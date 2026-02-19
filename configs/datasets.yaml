@@ -4,11 +4,11 @@ selection_status:
   rationale: "Selected primary OpenNeuro EEG candidate for initial end-to-end decoding baseline."
 
 readiness_checklist:
-  accession_confirmed: false
-  bids_files_present: false
-  labels_confirmed: false
-  class_balance_checked: false
-  exclusion_rules_locked: false
+  accession_confirmed: true
+  bids_files_present: true
+  labels_confirmed: true
+  class_balance_checked: true
+  exclusion_rules_locked: true
   ready_for_full_execution: false
 
 selection_criteria:
@@ -20,23 +20,29 @@ selection_criteria:
 candidate_datasets:
   - key: openneuro_candidate_1
     source: OpenNeuro
-    accession: "to_be_confirmed"
+    accession: "ds007056"
     modality: EEG
-    task_name: "oddball_or_category_task"
+    version: "1.1.1"
+    doi: "10.18112/openneuro.ds007056.v1.1.1"
+    task_name: "VisualOddball"
     bids_root_relative: data/raw/openneuro_candidate_1
-    target_label_column: "trial_type"
+    target_label_column: "value"
     class_labels:
-      - "standard"
-      - "target"
-    planned_subject_filter: "all"
+      - "Frequent_NonTarget"
+      - "Rare_Target"
+    label_mapping_source: "task-VisualOddball_events.json::value.Levels"
+    planned_subject_filter: "sub-1001 (initial ingestion slice; expand later)"
     planned_run_filter: "all"
     include: true
-    notes: "Primary candidate selected. Confirm accession and exact class names after dataset download."
+    notes: "Primary candidate locked and minimally ingested from OpenNeuro public S3 for initial pipeline validation."
     checklist:
-      accession_confirmed: false
-      target_label_column_confirmed: false
-      class_labels_confirmed: false
-      minimum_trials_per_class_met: false
+      accession_confirmed: true
+      target_label_column_confirmed: true
+      class_labels_confirmed: true
+      minimum_trials_per_class_met: true
+      sample_class_counts_sub_1001:
+        Frequent_NonTarget: 168
+        Rare_Target: 42
 
   - key: openneuro_candidate_2
     source: OpenNeuro
