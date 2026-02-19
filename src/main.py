@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,8 @@ from typing import Any
 import yaml
 
 from .features import extract_features
-from .io_bids import validate_bids_root
+from .io_bids import (build_eeg_index, summarize_eeg_index, validate_bids_root,
+                      write_eeg_index_csv)
 from .modeling import run_modeling
 from .preprocess import run_preprocessing
 from .visualization import make_figures
@@ -116,6 +118,7 @@ def _resolve_dataset_from_registry(
 def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) -> int:
     data_cfg = config.get("data", {}) if isinstance(config.get("data", {}), dict) else {}
     bids_root = _resolve_path(data_cfg.get("bids_root", "data/raw"), project_root)
+    outputs_dir = _resolve_path(data_cfg.get("outputs_dir", "outputs"), project_root)
 
     LOGGER.info("Pipeline mode: %s", "execute" if run_steps else "plan")
     LOGGER.info("BIDS root: %s", bids_root)
@@ -125,6 +128,28 @@ def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) ->
     if _step_enabled(config, "run_data_loading", True):
         if validate_bids_root(bids_root):
             LOGGER.info("Data loading check: BIDS root looks valid.")
+
+            eeg_index_records = build_eeg_index(bids_root)
+            eeg_summary = summarize_eeg_index(eeg_index_records)
+            LOGGER.info(
+                "EEG index summary: files=%s, subjects=%s, tasks=%s",
+                eeg_summary["n_files"],
+                eeg_summary["n_subjects"],
+                eeg_summary["n_tasks"],
+            )
+
+            tables_dir = outputs_dir / "tables"
+            tables_dir.mkdir(parents=True, exist_ok=True)
+
+            index_output_path = tables_dir / "eeg_index.csv"
+            summary_output_path = tables_dir / "eeg_index_summary.json"
+
+            write_eeg_index_csv(eeg_index_records, index_output_path)
+            with summary_output_path.open("w", encoding="utf-8") as stream:
+                json.dump(eeg_summary, stream, indent=2)
+
+            LOGGER.info("Saved EEG index table to: %s", index_output_path)
+            LOGGER.info("Saved EEG index summary to: %s", summary_output_path)
         else:
             LOGGER.warning(
                 "Data loading check: BIDS markers not found yet at %s (expected during planning before data download).",

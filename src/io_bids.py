@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
-
-import pandas as pd
 
 EEG_SUFFIX = "_eeg"
 EEG_EXTENSIONS = (".edf", ".bdf", ".vhdr", ".set", ".fif")
@@ -66,7 +65,7 @@ def _infer_sidecar_paths(eeg_file: Path) -> tuple[Path, Path]:
     return events_path, channels_path
 
 
-def build_eeg_index(bids_root: Path) -> pd.DataFrame:
+def build_eeg_index(bids_root: Path) -> list[dict[str, object]]:
     """Build a tabular index of EEG recordings and key BIDS metadata."""
     records: list[dict[str, object]] = []
 
@@ -93,6 +92,38 @@ def build_eeg_index(bids_root: Path) -> pd.DataFrame:
             }
         )
 
+    return records
+
+
+def summarize_eeg_index(index_records: list[dict[str, object]]) -> dict[str, int]:
+    """Return compact dataset-level counts from the EEG index."""
+    if not index_records:
+        return {
+            "n_files": 0,
+            "n_subjects": 0,
+            "n_tasks": 0,
+        }
+
+    subjects = {
+        str(record["sub"])
+        for record in index_records
+        if record.get("sub") is not None and str(record.get("sub"))
+    }
+    tasks = {
+        str(record["task"])
+        for record in index_records
+        if record.get("task") is not None and str(record.get("task"))
+    }
+
+    return {
+        "n_files": int(len(index_records)),
+        "n_subjects": int(len(subjects)),
+        "n_tasks": int(len(tasks)),
+    }
+
+
+def write_eeg_index_csv(index_records: list[dict[str, object]], output_path: Path) -> None:
+    """Write EEG index records to CSV."""
     columns = [
         "sub",
         "ses",
@@ -109,20 +140,9 @@ def build_eeg_index(bids_root: Path) -> pd.DataFrame:
         "events_exists",
         "channels_exists",
     ]
-    return pd.DataFrame.from_records(records, columns=columns)
 
-
-def summarize_eeg_index(index_df: pd.DataFrame) -> dict[str, int]:
-    """Return compact dataset-level counts from the EEG index."""
-    if index_df.empty:
-        return {
-            "n_files": 0,
-            "n_subjects": 0,
-            "n_tasks": 0,
-        }
-
-    return {
-        "n_files": int(len(index_df)),
-        "n_subjects": int(index_df["sub"].nunique(dropna=True)),
-        "n_tasks": int(index_df["task"].nunique(dropna=True)),
-    }
+    with output_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns)
+        writer.writeheader()
+        for row in index_records:
+            writer.writerow(row)
