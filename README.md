@@ -82,6 +82,8 @@ After BIDS-compliant preprocessing and epoch extraction, EEG-derived features (t
 ```text
 endToEndNeuroAnalysis/
 ├─ README.md
+├─ configs/
+│  └─ default.yaml
 ├─ report/
 │  ├─ outline.md
 │  └─ figures/
@@ -94,6 +96,7 @@ endToEndNeuroAnalysis/
 │  ├─ 03_feature_engineering.ipynb
 │  └─ 04_modeling_and_results.ipynb
 ├─ src/
+│  ├─ main.py
 │  ├─ config.py
 │  ├─ io_bids.py
 │  ├─ preprocess.py
@@ -124,3 +127,9 @@ endToEndNeuroAnalysis/
 - Reproducible pipeline from BIDS input to final figures/metrics.
 - Classification performance above chance with transparent validation.
 - Clear write-up of methods, results, limitations, and next steps.
+
+## Starter Pipeline Entry Point
+- Planning mode (safe, no analysis execution):
+  - `python -m src.main --config configs/default.yaml`
+- Later, when implementations are ready:
+  - `python -m src.main --config configs/default.yaml --run-steps`

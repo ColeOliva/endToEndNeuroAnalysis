@@ -1,0 +1,21 @@
+project:
+  name: endToEndNeuroAnalysis
+  random_seed: 42
+
+data:
+  bids_root: data/raw
+  derivatives_dir: data/derivatives
+  outputs_dir: outputs
+
+analysis:
+  mode: eeg
+  task: stimulus_decoding
+  target_label: stimulus_category
+
+execution:
+  run_data_loading: true
+  run_preprocessing: true
+  run_features: true
+  run_modeling: true
+  run_visualization: true
+  dry_run: true
