@@ -3,6 +3,14 @@ selection_status:
   selected_dataset_key: openneuro_candidate_1
   rationale: "Selected primary OpenNeuro EEG candidate for initial end-to-end decoding baseline."
 
+readiness_checklist:
+  accession_confirmed: false
+  bids_files_present: false
+  labels_confirmed: false
+  class_balance_checked: false
+  exclusion_rules_locked: false
+  ready_for_full_execution: false
+
 selection_criteria:
   - "BIDS-compliant EEG with complete metadata and events.tsv"
   - "Clear class labels for decoding task"
@@ -24,6 +32,11 @@ candidate_datasets:
     planned_run_filter: "all"
     include: true
     notes: "Primary candidate selected. Confirm accession and exact class names after dataset download."
+    checklist:
+      accession_confirmed: false
+      target_label_column_confirmed: false
+      class_labels_confirmed: false
+      minimum_trials_per_class_met: false
 
   - key: openneuro_candidate_2
     source: OpenNeuro
