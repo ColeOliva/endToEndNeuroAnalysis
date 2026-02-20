@@ -31,15 +31,22 @@ candidate_datasets:
       - "Frequent_NonTarget"
       - "Rare_Target"
     label_mapping_source: "task-VisualOddball_events.json::value.Levels"
-    planned_subject_filter: "sub-1001 (initial ingestion slice; expand later)"
+    planned_subject_filter: "sub-1001,sub-1002,sub-1004,sub-1005,sub-1006,sub-1007,sub-1008,sub-1009,sub-1010,sub-1011,sub-1013,sub-1014,sub-1015,sub-1016,sub-1017,sub-1018,sub-1020"
     planned_run_filter: "all"
     include: true
-    notes: "Primary candidate locked and minimally ingested from OpenNeuro public S3 for initial pipeline validation."
+    notes: "Primary candidate locked and expanded to a 17-subject slice from OpenNeuro public S3 for baseline modeling readiness."
     checklist:
       accession_confirmed: true
       target_label_column_confirmed: true
       class_labels_confirmed: true
       minimum_trials_per_class_met: true
+      subjects_with_events: 17
+      aggregate_class_counts:
+        Frequent_NonTarget: 2432
+        Rare_Target: 609
+      minimum_trials_per_subject:
+        Frequent_NonTarget: 82
+        Rare_Target: 19
       sample_class_counts_sub_1001:
         Frequent_NonTarget: 168
         Rare_Target: 42
