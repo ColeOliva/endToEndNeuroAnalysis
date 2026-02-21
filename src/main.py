@@ -198,6 +198,12 @@ def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) ->
                     outputs_dir=outputs_dir,
                 )
                 LOGGER.info("Feature artifacts: %s", step_result)
+            elif config_key == "run_modeling":
+                step_result = step_fn(
+                    config=config,
+                    outputs_dir=outputs_dir,
+                )
+                LOGGER.info("Modeling artifacts: %s", step_result)
             else:
                 step_fn()
             LOGGER.info("Finished %s.", display_name)

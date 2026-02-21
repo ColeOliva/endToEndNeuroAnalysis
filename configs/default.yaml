@@ -27,10 +27,13 @@ preprocessing:
   event_column: value
   reference: average
 
+modeling:
+  n_splits: 5
+
 execution:
   run_data_loading: true
   run_preprocessing: true
   run_features: true
-  run_modeling: false
+  run_modeling: true
   run_visualization: false
   dry_run: true
