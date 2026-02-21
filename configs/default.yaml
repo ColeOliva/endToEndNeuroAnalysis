@@ -15,6 +15,10 @@ analysis:
   mode: eeg
   task: stimulus_decoding
   target_label: stimulus_category
+  erp_windows:
+    erp_n1: [0.08, 0.14]
+    erp_p2: [0.15, 0.25]
+    erp_p3: [0.25, 0.5]
 
 preprocessing:
   l_freq: 1.0

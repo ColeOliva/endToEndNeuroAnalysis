@@ -30,6 +30,37 @@ def _safe_int(value: str, default: int = 0) -> int:
         return default
 
 
+def _is_float(value: str | None) -> bool:
+    if value is None:
+        return False
+    try:
+        float(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _infer_feature_columns(rows: list[dict[str, str]]) -> list[str]:
+    if not rows:
+        return []
+
+    excluded = {
+        "subject",
+        "task",
+        "run",
+        "event_code",
+        "label",
+        "label_binary",
+    }
+    candidates = [column for column in rows[0].keys() if column not in excluded]
+
+    numeric_columns: list[str] = []
+    for column in candidates:
+        if all(_is_float(row.get(column)) for row in rows):
+            numeric_columns.append(column)
+    return numeric_columns
+
+
 def _balanced_accuracy(y_true: list[int], y_pred: list[int]) -> float:
     positives = sum(1 for value in y_true if value == 1)
     negatives = sum(1 for value in y_true if value == 0)
@@ -66,7 +97,9 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
     if not rows:
         raise ValueError("Feature table is empty; cannot run modeling.")
 
-    feature_names = ["onset_sec", "duration_sec", "sample", "isi_sec", "trial_index"]
+    feature_names = _infer_feature_columns(rows)
+    if not feature_names:
+        raise ValueError("No numeric feature columns found in baseline_features.csv.")
     X = [[_safe_float(row.get(name, "0")) for name in feature_names] for row in rows]
     y = [_safe_int(row.get("label_binary", "0")) for row in rows]
     groups = [row.get("subject", "") for row in rows]

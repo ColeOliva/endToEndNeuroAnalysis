@@ -1,4 +1,4 @@
-"""Baseline feature extraction from BIDS event files and metadata."""
+"""EEG-derived feature extraction from BIDS event files and EEGLAB recordings."""
 
 from __future__ import annotations
 
@@ -7,6 +7,14 @@ import json
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+
+def _load_mne_or_raise() -> Any:
+    try:
+        import mne
+    except ImportError as exc:
+        raise RuntimeError("mne is required for EEG feature extraction. Install requirements.txt.") from exc
+    return mne
 
 
 def _load_event_levels(bids_root: Path, task_name: str) -> dict[str, str]:
@@ -39,6 +47,64 @@ def _coerce_float(value: str | None, default: float = 0.0) -> float:
 def _coerce_int(value: str | None, default: int = 0) -> int:
     if value is None:
         return default
+
+
+def _extract_waveform_features(
+    raw: Any,
+    onset_sec: float,
+    tmin: float,
+    tmax: float,
+    baseline_start: float,
+    baseline_end: float,
+    windows: list[tuple[str, float, float]],
+) -> dict[str, float] | None:
+    sfreq = float(raw.info["sfreq"])
+    onset_sample = int(round(onset_sec * sfreq))
+    start = onset_sample + int(round(tmin * sfreq))
+    stop = onset_sample + int(round(tmax * sfreq))
+
+    if start < 0 or stop <= start or stop >= raw.n_times:
+        return None
+
+    data = raw.get_data(picks="eeg", start=start, stop=stop)
+    if data.size == 0:
+        return None
+
+    baseline_s = onset_sample + int(round(baseline_start * sfreq))
+    baseline_e = onset_sample + int(round(baseline_end * sfreq))
+    baseline_s = max(0, baseline_s)
+    baseline_e = min(raw.n_times, baseline_e)
+
+    if baseline_e <= baseline_s:
+        return None
+
+    baseline_data = raw.get_data(picks="eeg", start=baseline_s, stop=baseline_e)
+    if baseline_data.size == 0:
+        return None
+
+    centered = data - baseline_data.mean(axis=1, keepdims=True)
+    global_waveform = centered.mean(axis=0)
+
+    features: dict[str, float] = {}
+    for name, win_start, win_end in windows:
+        w_start = onset_sample + int(round(win_start * sfreq))
+        w_end = onset_sample + int(round(win_end * sfreq))
+        rel_start = w_start - start
+        rel_end = w_end - start
+
+        rel_start = max(0, rel_start)
+        rel_end = min(len(global_waveform), rel_end)
+        if rel_end <= rel_start:
+            features[name] = 0.0
+            continue
+
+        segment = global_waveform[rel_start:rel_end]
+        features[name] = float(segment.mean())
+
+    features["erp_peak_pos"] = float(global_waveform.max())
+    features["erp_peak_neg"] = float(global_waveform.min())
+    features["erp_peak_to_peak"] = float(features["erp_peak_pos"] - features["erp_peak_neg"])
+    return features
     value = value.strip()
     if not value or value.lower() == "n/a":
         return default
@@ -49,12 +115,43 @@ def _coerce_int(value: str | None, default: int = 0) -> int:
 
 
 def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path) -> dict[str, Any]:
-    """Build a baseline trial-level feature table from events and metadata mapping."""
+    """Build trial-level EEG-derived ERP features from event-locked windows."""
+    mne = _load_mne_or_raise()
+
     analysis_cfg = config.get("analysis", {}) if isinstance(config.get("analysis", {}), dict) else {}
     target_column = str(analysis_cfg.get("target_label", "value"))
     task_name = str(analysis_cfg.get("task_name", "VisualOddball"))
     class_labels_cfg = analysis_cfg.get("class_labels", ["Frequent_NonTarget", "Rare_Target"])
     class_labels = [str(item) for item in class_labels_cfg] if isinstance(class_labels_cfg, list) else []
+
+    preprocessing_cfg = (
+        config.get("preprocessing", {}) if isinstance(config.get("preprocessing", {}), dict) else {}
+    )
+    l_freq = float(preprocessing_cfg.get("l_freq", 1.0))
+    h_freq = float(preprocessing_cfg.get("h_freq", 40.0))
+    tmin = float(preprocessing_cfg.get("tmin", -0.2))
+    tmax = float(preprocessing_cfg.get("tmax", 0.8))
+    baseline_cfg = preprocessing_cfg.get("baseline", [-0.2, 0.0])
+    baseline_start = float(baseline_cfg[0]) if isinstance(baseline_cfg, list) and baseline_cfg else -0.2
+    baseline_end = (
+        float(baseline_cfg[1])
+        if isinstance(baseline_cfg, list) and len(baseline_cfg) > 1
+        else 0.0
+    )
+
+    windows_cfg = analysis_cfg.get(
+        "erp_windows",
+        {
+            "erp_n1": [0.08, 0.14],
+            "erp_p2": [0.15, 0.25],
+            "erp_p3": [0.25, 0.5],
+        },
+    )
+    windows: list[tuple[str, float, float]] = []
+    if isinstance(windows_cfg, dict):
+        for name, bounds in windows_cfg.items():
+            if isinstance(bounds, list) and len(bounds) == 2:
+                windows.append((str(name), float(bounds[0]), float(bounds[1])))
 
     levels = _load_event_levels(bids_root, task_name)
 
@@ -65,9 +162,25 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
 
     rows: list[dict[str, object]] = []
     class_counter: Counter[str] = Counter()
+    processed_files = 0
+    skipped_files = 0
 
     event_files = sorted(bids_root.glob("sub-*/eeg/*_events.tsv"))
     for event_path in event_files:
+        eeg_path = event_path.with_name(event_path.name.replace("_events.tsv", "_eeg.set"))
+        if not eeg_path.exists():
+            skipped_files += 1
+            continue
+
+        try:
+            raw = mne.io.read_raw_eeglab(str(eeg_path), preload=True, verbose="ERROR")
+            raw.pick("eeg")
+            raw.filter(l_freq=l_freq, h_freq=h_freq, verbose="ERROR")
+            processed_files += 1
+        except Exception:
+            skipped_files += 1
+            continue
+
         subject = event_path.parts[-3].replace("sub-", "")
         file_stem = event_path.name.replace("_events.tsv", "")
         stem_parts = file_stem.split("_")
@@ -91,6 +204,18 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
                 isi = 0.0 if previous_onset is None else max(0.0, onset - previous_onset)
                 previous_onset = onset
 
+                waveform_features = _extract_waveform_features(
+                    raw=raw,
+                    onset_sec=onset,
+                    tmin=tmin,
+                    tmax=tmax,
+                    baseline_start=baseline_start,
+                    baseline_end=baseline_end,
+                    windows=windows,
+                )
+                if waveform_features is None:
+                    continue
+
                 trial_index += 1
                 class_counter[mapped_label] += 1
 
@@ -107,6 +232,7 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
                         "event_code": raw_label,
                         "label": mapped_label,
                         "label_binary": 1 if mapped_label == "Rare_Target" else 0,
+                        **waveform_features,
                     }
                 )
 
@@ -139,10 +265,13 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
 
     summary = {
         "n_event_files": len(event_files),
+        "n_processed_eeg_files": processed_files,
+        "n_skipped_eeg_files": skipped_files,
         "n_rows": len(rows),
         "target_column": target_column,
         "task_name": task_name,
         "class_counts": dict(class_counter),
+        "erp_windows": {name: [start, end] for name, start, end in windows},
     }
 
     summary_path = metrics_dir / "baseline_feature_summary.json"
