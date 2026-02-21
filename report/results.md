@@ -1,23 +1,23 @@
 # Results Summary
 
 ## Run Metadata
-- Final run ID: ds007056_v1_1_1_final_2026_02_20
+- Final run ID: ds007056_v1_1_1_final_refined_2026_02_20
 - Run stamp: ../outputs/metrics/final_run_stamp.json
 
 ## Dataset and Features
-- Event files processed: 17
-- EEG files processed: 16
+- Event files processed: 286
+- EEG files processed: 285
 - EEG files skipped: 1
-- Trial rows in feature table: 2855
-- Class counts: {'Frequent_NonTarget': 2286, 'Rare_Target': 569}
+- Trial rows in feature table: 58963
+- Class counts: {'Frequent_NonTarget': 47171, 'Rare_Target': 11792}
 
 ## Modeling
-- Subjects in CV: 16
+- Subjects in CV: 285
 - CV folds: 5
-- Mean balanced accuracy (model): 0.6259722095353096
+- Mean balanced accuracy (model): 0.5783009385900147
 - Mean balanced accuracy (baseline): 0.5
-- ROC AUC: 0.6716461628588166
-- Confusion matrix (TN, FP, FN, TP): (1302, 984, 181, 388)
+- ROC AUC: 0.6082288207341247
+- Confusion matrix (TN, FP, FN, TP): (26327, 20844, 4735, 7057)
 
 ## Figures
 - Class balance: ../outputs/figures/class_balance.png
@@ -27,5 +27,5 @@
 - ROC curve: ../outputs/figures/roc_curve.png
 
 ## Interpretation
-- Model minus baseline (balanced accuracy): 0.12597220953530963
+- Model minus baseline (balanced accuracy): 0.07830093859001475
 - Current signal-feature pipeline shows above-chance decoding on subject-wise CV.

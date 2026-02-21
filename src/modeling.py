@@ -73,6 +73,30 @@ def _balanced_accuracy(y_true: list[int], y_pred: list[int]) -> float:
     return (tpr + tnr) / 2.0
 
 
+def _predict_with_threshold(scores: list[float], threshold: float) -> list[int]:
+    return [1 if score >= threshold else 0 for score in scores]
+
+
+def _select_balanced_threshold(y_true: list[int], y_score: list[float]) -> float:
+    best_threshold = 0.5
+    best_score = -1.0
+
+    for idx in range(101):
+        threshold = idx / 100.0
+        y_pred = _predict_with_threshold(y_score, threshold)
+        score = _balanced_accuracy(y_true, y_pred)
+
+        is_better = score > best_score
+        is_tie_with_better_centering = (
+            score == best_score and abs(threshold - 0.5) < abs(best_threshold - 0.5)
+        )
+        if is_better or is_tie_with_better_centering:
+            best_score = score
+            best_threshold = threshold
+
+    return best_threshold
+
+
 def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
     """Train and evaluate a baseline logistic regression model with subject-wise CV."""
     try:
@@ -88,6 +112,8 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
 
     modeling_cfg = config.get("modeling", {}) if isinstance(config.get("modeling", {}), dict) else {}
     n_splits = int(modeling_cfg.get("n_splits", 5))
+    threshold_strategy = str(modeling_cfg.get("decision_threshold_strategy", "train_balanced_optimal"))
+    fixed_threshold = float(modeling_cfg.get("decision_threshold", 0.5))
     random_seed = int(config.get("project", {}).get("random_seed", 42))
 
     features_path = outputs_dir / "tables" / "baseline_features.csv"
@@ -129,6 +155,7 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
     fold_rows: list[dict[str, object]] = []
     model_scores: list[float] = []
     baseline_scores: list[float] = []
+    applied_thresholds: list[float] = []
     prediction_rows: list[dict[str, object]] = []
 
     for fold_idx, (train_idx, test_idx) in enumerate(splitter.split(X, y, groups), start=1):
@@ -138,8 +165,19 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
         y_test = [y[i] for i in test_idx]
 
         model.fit(X_train, y_train)
-        y_pred = model.predict(X_test).tolist()
+        train_score = model.predict_proba(X_train)[:, 1].tolist()
         y_score = model.predict_proba(X_test)[:, 1].tolist()
+
+        if threshold_strategy == "fixed_0_5":
+            decision_threshold = 0.5
+        elif threshold_strategy == "fixed":
+            decision_threshold = fixed_threshold
+        else:
+            decision_threshold = _select_balanced_threshold(y_train, train_score)
+
+        decision_threshold = max(0.0, min(1.0, float(decision_threshold)))
+        applied_thresholds.append(decision_threshold)
+        y_pred = _predict_with_threshold(y_score, decision_threshold)
 
         majority_label = Counter(y_train).most_common(1)[0][0]
         y_base = [majority_label for _ in y_test]
@@ -157,6 +195,7 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
                 "n_test": len(test_idx),
                 "n_test_subjects": len(test_subjects),
                 "test_subjects": ",".join(test_subjects),
+                "decision_threshold": round(decision_threshold, 6),
                 "model_balanced_accuracy": round(model_bal_acc, 6),
                 "baseline_balanced_accuracy": round(base_bal_acc, 6),
             }
@@ -226,6 +265,9 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
         "std_baseline_balanced_accuracy": statistics.pstdev(baseline_scores)
         if len(baseline_scores) > 1
         else 0.0,
+        "decision_threshold_strategy": threshold_strategy,
+        "mean_applied_threshold": statistics.mean(applied_thresholds) if applied_thresholds else 0.5,
+        "std_applied_threshold": statistics.pstdev(applied_thresholds) if len(applied_thresholds) > 1 else 0.0,
         "confusion_matrix": {
             "tn": tn,
             "fp": fp,

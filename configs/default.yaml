@@ -37,10 +37,12 @@ preprocessing:
 
 modeling:
   n_splits: 5
+  decision_threshold_strategy: train_balanced_optimal
+  decision_threshold: 0.5
 
 final_run:
-  enabled: false
-  final_run_id: ds007056_v1_1_1_final_2026_02_20
+  enabled: true
+  final_run_id: ds007056_v1_1_1_final_refined_2026_02_20
   lock_execution: true
   lock_parameters: true
 

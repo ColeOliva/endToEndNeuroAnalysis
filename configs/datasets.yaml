@@ -1,7 +1,7 @@
 selection_status:
   finalized: true
   selected_dataset_key: openneuro_candidate_1
-  rationale: "Selected primary OpenNeuro EEG candidate for initial end-to-end decoding baseline."
+  rationale: "Selected primary OpenNeuro EEG candidate and completed full available-subject ingestion for final analysis."
 
 readiness_checklist:
   accession_confirmed: true
@@ -9,7 +9,7 @@ readiness_checklist:
   labels_confirmed: true
   class_balance_checked: true
   exclusion_rules_locked: true
-  ready_for_full_execution: false
+  ready_for_full_execution: true
 
 selection_criteria:
   - "BIDS-compliant EEG with complete metadata and events.tsv"
@@ -31,22 +31,22 @@ candidate_datasets:
       - "Frequent_NonTarget"
       - "Rare_Target"
     label_mapping_source: "task-VisualOddball_events.json::value.Levels"
-    planned_subject_filter: "sub-1001,sub-1002,sub-1004,sub-1005,sub-1006,sub-1007,sub-1008,sub-1009,sub-1010,sub-1011,sub-1013,sub-1014,sub-1015,sub-1016,sub-1017,sub-1018,sub-1020"
+    planned_subject_filter: "all_available_subjects"
     planned_run_filter: "all"
     include: true
-    notes: "Primary candidate locked and expanded to a 17-subject slice from OpenNeuro public S3 for baseline modeling readiness."
+    notes: "Primary candidate locked with full available-subject ingestion from OpenNeuro public S3 for frozen final modeling." 
     checklist:
       accession_confirmed: true
       target_label_column_confirmed: true
       class_labels_confirmed: true
       minimum_trials_per_class_met: true
-      subjects_with_events: 17
+      subjects_with_events: 286
       aggregate_class_counts:
-        Frequent_NonTarget: 2432
-        Rare_Target: 609
+        Frequent_NonTarget: 47317
+        Rare_Target: 11832
       minimum_trials_per_subject:
-        Frequent_NonTarget: 82
-        Rare_Target: 19
+        Frequent_NonTarget: 64
+        Rare_Target: 16
       sample_class_counts_sub_1001:
         Frequent_NonTarget: 168
         Rare_Target: 42
@@ -69,7 +69,7 @@ candidate_datasets:
 frozen_analysis_contract:
   objective: "Decode stimulus category from EEG epochs above chance"
   metric_primary: "balanced_accuracy"
-  cv_strategy: "StratifiedKFold"
+  cv_strategy: "GroupKFold"
   cv_folds: 5
   chance_baseline: "majority_class"
   report_minimum_outputs:
