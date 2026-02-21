@@ -34,6 +34,12 @@ preprocessing:
 modeling:
   n_splits: 5
 
+final_run:
+  enabled: true
+  final_run_id: ds007056_v1_1_1_final_2026_02_20
+  lock_execution: true
+  lock_parameters: true
+
 execution:
   run_data_loading: true
   run_preprocessing: true

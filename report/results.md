@@ -1,5 +1,9 @@
 # Results Summary
 
+## Run Metadata
+- Final run ID: ds007056_v1_1_1_final_2026_02_20
+- Run stamp: ../outputs/metrics/final_run_stamp.json
+
 ## Dataset and Features
 - Event files processed: 17
 - EEG files processed: 16

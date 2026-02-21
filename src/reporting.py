@@ -22,6 +22,10 @@ def generate_results_report(config: dict[str, Any], outputs_dir: Path, report_di
     feature_summary = _load_json(outputs_dir / "metrics" / "baseline_feature_summary.json")
     model_summary = _load_json(outputs_dir / "metrics" / "modeling_baseline_metrics.json")
     viz_summary = _load_json(outputs_dir / "metrics" / "visualization_summary.json")
+    run_stamp = _load_json(outputs_dir / "metrics" / "final_run_stamp.json")
+
+    runtime_cfg = config.get("runtime", {}) if isinstance(config.get("runtime", {}), dict) else {}
+    final_run_id = runtime_cfg.get("final_run_id", run_stamp.get("final_run_id", "n/a"))
 
     confusion = model_summary.get("confusion_matrix", {}) if isinstance(model_summary, dict) else {}
     tn = confusion.get("tn", "n/a")
@@ -31,6 +35,10 @@ def generate_results_report(config: dict[str, Any], outputs_dir: Path, report_di
 
     lines = [
         "# Results Summary",
+        "",
+        "## Run Metadata",
+        f"- Final run ID: {final_run_id}",
+        "- Run stamp: ../outputs/metrics/final_run_stamp.json",
         "",
         "## Dataset and Features",
         f"- Event files processed: {feature_summary.get('n_event_files', 'n/a')}",

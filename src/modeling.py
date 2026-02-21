@@ -77,8 +77,7 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
     """Train and evaluate a baseline logistic regression model with subject-wise CV."""
     try:
         from sklearn.linear_model import LogisticRegression
-        from sklearn.metrics import roc_auc_score
-        from sklearn.metrics import roc_curve
+        from sklearn.metrics import roc_auc_score, roc_curve
         from sklearn.model_selection import GroupKFold
         from sklearn.pipeline import Pipeline
         from sklearn.preprocessing import StandardScaler

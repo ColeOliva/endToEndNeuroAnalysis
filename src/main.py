@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +57,86 @@ def _step_enabled(config: dict[str, Any], key: str, default: bool = True) -> boo
 def _resolve_path(raw_path: str | Path, project_root: Path) -> Path:
     path = Path(raw_path)
     return path if path.is_absolute() else project_root / path
+
+
+def _prepare_final_run_config(config: dict[str, Any]) -> None:
+    final_run_cfg = config.get("final_run", {})
+    if not isinstance(final_run_cfg, dict) or not bool(final_run_cfg.get("enabled", False)):
+        return
+
+    run_id_raw = final_run_cfg.get("final_run_id")
+    if isinstance(run_id_raw, str) and run_id_raw.strip():
+        run_id = run_id_raw.strip()
+    else:
+        run_id = datetime.now(timezone.utc).strftime("final_run_%Y%m%dT%H%M%SZ")
+        final_run_cfg["final_run_id"] = run_id
+        config["final_run"] = final_run_cfg
+
+    runtime_cfg = config.get("runtime", {})
+    if not isinstance(runtime_cfg, dict):
+        runtime_cfg = {}
+    runtime_cfg["final_run_enabled"] = True
+    runtime_cfg["final_run_id"] = run_id
+    runtime_cfg["freeze_applied_utc"] = datetime.now(timezone.utc).isoformat()
+    config["runtime"] = runtime_cfg
+
+    if bool(final_run_cfg.get("lock_execution", True)):
+        execution_cfg = config.get("execution", {})
+        if not isinstance(execution_cfg, dict):
+            execution_cfg = {}
+        execution_cfg.update(
+            {
+                "run_data_loading": True,
+                "run_preprocessing": True,
+                "run_features": True,
+                "run_modeling": True,
+                "run_visualization": True,
+                "run_reporting": True,
+                "dry_run": False,
+            }
+        )
+        config["execution"] = execution_cfg
+
+    if bool(final_run_cfg.get("lock_parameters", True)):
+        modeling_cfg = config.get("modeling", {})
+        if not isinstance(modeling_cfg, dict):
+            modeling_cfg = {}
+        modeling_cfg["n_splits"] = int(modeling_cfg.get("n_splits", 5))
+        config["modeling"] = modeling_cfg
+
+
+def _write_final_run_stamp(config: dict[str, Any], project_root: Path) -> None:
+    runtime_cfg = config.get("runtime", {})
+    if not isinstance(runtime_cfg, dict) or not bool(runtime_cfg.get("final_run_enabled", False)):
+        return
+
+    data_cfg = config.get("data", {}) if isinstance(config.get("data", {}), dict) else {}
+    outputs_dir = _resolve_path(data_cfg.get("outputs_dir", "outputs"), project_root)
+    metrics_dir = outputs_dir / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    canonical_config = json.dumps(config, sort_keys=True, separators=(",", ":"))
+    config_hash = hashlib.sha256(canonical_config.encode("utf-8")).hexdigest()
+
+    stamp = {
+        "final_run_id": runtime_cfg.get("final_run_id"),
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "config_sha256": config_hash,
+        "analysis": config.get("analysis", {}),
+        "preprocessing": config.get("preprocessing", {}),
+        "modeling": config.get("modeling", {}),
+        "execution": config.get("execution", {}),
+        "data": {
+            "bids_root": str(data_cfg.get("bids_root", "")),
+            "outputs_dir": str(outputs_dir),
+        },
+    }
+
+    stamp_path = metrics_dir / "final_run_stamp.json"
+    with stamp_path.open("w", encoding="utf-8") as stream:
+        json.dump(stamp, stream, indent=2)
+
+    LOGGER.info("Final run stamp written to: %s", stamp_path)
 
 
 def _resolve_dataset_from_registry(
@@ -296,6 +378,13 @@ def main() -> int:
     except ValueError as exc:
         LOGGER.error("Invalid dataset registry configuration: %s", exc)
         return 2
+
+    _prepare_final_run_config(config)
+    _write_final_run_stamp(config, project_root)
+
+    runtime_cfg = config.get("runtime", {}) if isinstance(config.get("runtime", {}), dict) else {}
+    if bool(runtime_cfg.get("final_run_enabled", False)):
+        LOGGER.info("Final run freeze mode enabled: %s", runtime_cfg.get("final_run_id", "(no id)"))
 
     cfg_dry_run = _step_enabled(config, "dry_run", True)
     run_steps = bool(args.run_steps)
