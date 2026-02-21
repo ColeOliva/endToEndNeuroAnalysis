@@ -110,6 +110,14 @@ def _resolve_dataset_from_registry(
         config["analysis"] = analysis_cfg
     analysis_cfg["target_label"] = target_label
 
+    task_name = selected_dataset.get("task_name")
+    if isinstance(task_name, str) and task_name:
+        analysis_cfg["task_name"] = task_name
+
+    class_labels = selected_dataset.get("class_labels")
+    if isinstance(class_labels, list):
+        analysis_cfg["class_labels"] = [str(item) for item in class_labels]
+
     LOGGER.info("Dataset registry selected key: %s", selected_key)
     LOGGER.info("Resolved target label from registry: %s", target_label)
     return resolved_bids_root, target_label
@@ -183,6 +191,13 @@ def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) ->
                     outputs_dir=outputs_dir,
                 )
                 LOGGER.info("Preprocessing artifacts: %s", step_result)
+            elif config_key == "run_features":
+                step_result = step_fn(
+                    config=config,
+                    bids_root=bids_root,
+                    outputs_dir=outputs_dir,
+                )
+                LOGGER.info("Feature artifacts: %s", step_result)
             else:
                 step_fn()
             LOGGER.info("Finished %s.", display_name)
