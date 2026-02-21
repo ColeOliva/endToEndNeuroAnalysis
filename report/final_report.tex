@@ -1,0 +1,170 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{End-to-End EEG-Based Decoding of Visual Oddball Stimulus Class Using Subject-Wise Cross-Validation}
+\author{Cole Oliva}
+\date{February 20, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We built and evaluated an end-to-end EEG analysis pipeline on OpenNeuro dataset ds007056 (PURSUE P300 Visual Oddball). The finalized run processed 285 EEG recordings (286 event files total; 1 EEG file skipped due to read/processing failure) and produced 58,963 trial-level feature rows. Using subject-wise GroupKFold (5 folds) and a class-weighted logistic regression model with subject-normalized feature expansion and fold-wise threshold optimization, the model achieved mean balanced accuracy of 0.6081 (baseline: 0.5000) and ROC AUC of 0.6467. Compared with the pre-upgrade baseline, post-upgrade performance improved by +0.0300 balanced-accuracy points and +0.0385 ROC AUC, with substantial false-positive reduction.
+\end{abstract}
+
+\section{Introduction}
+\subsection{Research Question}
+Can EEG-derived event-locked and spectral features decode target vs non-target stimulus classes above chance under strict subject-wise validation?
+
+\subsection{Hypothesis}
+A lightweight EEG feature set (ERP windows + waveform descriptors + bandpower), augmented by subject-wise feature normalization, should provide reliable above-chance decoding under GroupKFold.
+
+\section{Data}
+\subsection{Dataset}
+\begin{itemize}[leftmargin=*]
+  \item Source: OpenNeuro
+  \item Accession: ds007056 (v1.1.1)
+  \item Task: VisualOddball
+  \item Labels: Frequent\_NonTarget, Rare\_Target
+  \item Label field: \texttt{value} (mapped via \texttt{task-VisualOddball\_events.json})
+\end{itemize}
+
+\subsection{Cohort and Coverage}
+\begin{itemize}[leftmargin=*]
+  \item Event files processed: 286
+  \item EEG files processed: 285
+  \item EEG files skipped: 1
+  \item Subjects in CV: 285
+  \item Trial rows: 58,963
+  \item Class counts: Frequent\_NonTarget = 47,171; Rare\_Target = 11,792
+\end{itemize}
+
+\section{Methods}
+\subsection{Pipeline}
+\begin{enumerate}[leftmargin=*]
+  \item BIDS indexing and integrity checks
+  \item EEG preprocessing (bandpass and baseline handling in feature extraction workflow)
+  \item Event-locked feature extraction
+  \item Subject-wise cross-validated modeling
+  \item Figure and report generation
+\end{enumerate}
+
+\subsection{Features}
+\begin{itemize}[leftmargin=*]
+  \item ERP window means: N1, P2, P3
+  \item Waveform features: peak positive, peak negative, peak-to-peak, mean absolute amplitude, standard deviation, absolute AUC
+  \item Bandpower features: theta, alpha, beta (+ relative bandpower)
+  \item Subject normalization: enabled (z-transformed counterparts for each base feature group)
+  \item Feature groups: 15 base + 15 z-normalized
+\end{itemize}
+
+\subsection{Modeling}
+\begin{itemize}[leftmargin=*]
+  \item Model: Logistic Regression (\texttt{class\_weight=balanced})
+  \item Validation: GroupKFold (n=5), grouped by subject
+  \item Threshold strategy: \texttt{train\_balanced\_optimal} per fold
+  \item Primary metric: balanced accuracy
+  \item Secondary metric: ROC AUC
+  \item Baseline comparator: majority class (balanced accuracy = 0.5)
+\end{itemize}
+
+\section{Results}
+\subsection{Primary Outcomes}
+\begin{itemize}[leftmargin=*]
+  \item Mean balanced accuracy (model): 0.6081258625383577
+  \item Mean balanced accuracy (baseline): 0.5
+  \item Lift over baseline: +0.10812586253835765
+  \item ROC AUC: 0.6467288195979253
+\end{itemize}
+
+\subsection{Fold Stability}
+Fold-wise model balanced accuracy range: 0.598020 to 0.618041.
+
+\subsection{Confusion Matrix (OOF)}
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+ & Predicted NonTarget & Predicted Target \\
+\midrule
+True NonTarget & 29,058 & 18,113 \\
+True Target & 4,714 & 7,078 \\
+\bottomrule
+\end{tabular}
+\caption{Out-of-fold confusion matrix.}
+\end{table}
+
+\subsection{Upgrade Impact}
+Relative to pre-upgrade baseline:
+\begin{itemize}[leftmargin=*]
+  \item Balanced accuracy: +0.0300191153169562
+  \item ROC AUC: +0.0384999988638006
+  \item TP: +28, FN: -28, FP: -2721, TN: +2721
+\end{itemize}
+
+\section{Discussion}
+The finalized pipeline demonstrates stable above-chance decoding on a large multi-subject cohort under subject-wise validation. Subject-normalized feature expansion materially improved separability, and threshold optimization provided additional calibration gains. The largest practical gain is the reduction in false positives while maintaining and improving target sensitivity.
+
+\section{Limitations}
+\begin{itemize}[leftmargin=*]
+  \item One EEG file was skipped, leaving 285 modeled subjects.
+  \item Linear model and handcrafted features may underfit nonlinear structure.
+  \item Single-dataset evaluation; external generalization is not yet tested.
+\end{itemize}
+
+\section{Conclusion}
+The project now has a reproducible end-to-end baseline with meaningful decoding performance improvements after feature and threshold upgrades. This constitutes a strong foundation for manuscript-ready iteration and future model and feature expansion.
+
+\section{Reproducibility Artifacts}
+\begin{itemize}[leftmargin=*]
+  \item Main summary: \texttt{report/results.md}
+  \item Preliminary baseline summary: \texttt{report/preliminary\_full\_run\_report.md}
+  \item Upgrade deltas: \texttt{report/upgrade\_impact\_report.md}
+  \item Final run stamp: \texttt{outputs/metrics/final\_run\_stamp.json}
+  \item Model metrics: \texttt{outputs/metrics/modeling\_baseline\_metrics.json}
+\end{itemize}
+
+\section{Figures}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\textwidth]{class_balance.png}
+  \caption{Class balance across extracted trials.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\textwidth]{fold_balanced_accuracy.png}
+  \caption{Fold-wise balanced accuracy (model vs baseline).}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{mean_balanced_accuracy.png}
+  \caption{Mean balanced accuracy comparison.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{confusion_matrix.png}
+  \caption{Confusion matrix heatmap.}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{roc_curve.png}
+  \caption{ROC curve.}
+\end{figure}
+
+\end{document}

@@ -145,6 +145,32 @@ def _extract_waveform_features(
     return features
 
 
+def _add_subject_z_features(
+    rows: list[dict[str, object]],
+    feature_keys: list[str],
+) -> int:
+    if not rows or not feature_keys:
+        return 0
+
+    subject_to_rows: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        subject = str(row.get("subject", ""))
+        subject_to_rows.setdefault(subject, []).append(row)
+
+    for subject_rows in subject_to_rows.values():
+        for key in feature_keys:
+            values = np.array([float(row.get(key, 0.0)) for row in subject_rows], dtype=float)
+            if values.size == 0:
+                continue
+            mean_value = float(values.mean())
+            std_value = float(values.std())
+            safe_std = std_value if std_value > 1e-12 else 1.0
+            for row in subject_rows:
+                row[f"z_{key}"] = (float(row.get(key, 0.0)) - mean_value) / safe_std
+
+    return len(feature_keys)
+
+
 def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path) -> dict[str, Any]:
     """Build trial-level EEG-derived ERP features from event-locked windows."""
     mne = _load_mne_or_raise()
@@ -154,10 +180,16 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
     task_name = str(analysis_cfg.get("task_name", "VisualOddball"))
     class_labels_cfg = analysis_cfg.get("class_labels", ["Frequent_NonTarget", "Rare_Target"])
     class_labels = [str(item) for item in class_labels_cfg] if isinstance(class_labels_cfg, list) else []
+    subject_normalization = bool(analysis_cfg.get("subject_normalization", True))
 
     preprocessing_cfg = (
         config.get("preprocessing", {}) if isinstance(config.get("preprocessing", {}), dict) else {}
     )
+    fallback_target_columns: list[str] = []
+    preprocessing_event_column = preprocessing_cfg.get("event_column")
+    if isinstance(preprocessing_event_column, str) and preprocessing_event_column.strip():
+        fallback_target_columns.append(preprocessing_event_column.strip())
+    fallback_target_columns.extend(["value", "trial_type"])
     l_freq = float(preprocessing_cfg.get("l_freq", 1.0))
     h_freq = float(preprocessing_cfg.get("h_freq", 40.0))
     tmin = float(preprocessing_cfg.get("tmin", -0.2))
@@ -234,10 +266,16 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
 
         with event_path.open("r", encoding="utf-8") as stream:
             reader = csv.DictReader(stream, delimiter="\t")
+            active_target_column = target_column
+            if reader.fieldnames and active_target_column not in reader.fieldnames:
+                for candidate in fallback_target_columns:
+                    if candidate in reader.fieldnames:
+                        active_target_column = candidate
+                        break
             previous_onset = None
             trial_index = 0
             for event in reader:
-                raw_label = str(event.get(target_column, "")).strip()
+                raw_label = str(event.get(active_target_column, "")).strip()
                 mapped_label = levels.get(raw_label, raw_label)
 
                 if class_labels and mapped_label not in class_labels:
@@ -283,7 +321,31 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
                 )
 
     features_path = tables_dir / "baseline_features.csv"
+    added_z_feature_groups = 0
+    base_feature_keys: list[str] = []
     if rows:
+        excluded = {
+            "subject",
+            "task",
+            "run",
+            "trial_index",
+            "onset_sec",
+            "duration_sec",
+            "sample",
+            "isi_sec",
+            "event_code",
+            "label",
+            "label_binary",
+        }
+        base_feature_keys = [
+            key
+            for key in rows[0].keys()
+            if key not in excluded and isinstance(rows[0].get(key), (float, int))
+        ]
+
+        if subject_normalization:
+            added_z_feature_groups = _add_subject_z_features(rows, base_feature_keys)
+
         fieldnames = list(rows[0].keys())
         with features_path.open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=fieldnames)
@@ -319,6 +381,9 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
         "class_counts": dict(class_counter),
         "erp_windows": {name: [start, end] for name, start, end in windows},
         "bandpower_bands": {name: [lo, hi] for name, (lo, hi) in bands.items()},
+        "subject_normalization_enabled": subject_normalization,
+        "base_feature_group_count": len(base_feature_keys),
+        "z_feature_group_count": added_z_feature_groups,
     }
 
     summary_path = metrics_dir / "baseline_feature_summary.json"

@@ -15,6 +15,7 @@ analysis:
   mode: eeg
   task: stimulus_decoding
   target_label: stimulus_category
+  subject_normalization: true
   erp_windows:
     erp_n1: [0.08, 0.14]
     erp_p2: [0.15, 0.25]

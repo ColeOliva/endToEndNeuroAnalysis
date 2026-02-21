@@ -46,12 +46,20 @@ def generate_results_report(config: dict[str, Any], outputs_dir: Path, report_di
         f"- EEG files skipped: {feature_summary.get('n_skipped_eeg_files', 'n/a')}",
         f"- Trial rows in feature table: {feature_summary.get('n_rows', 'n/a')}",
         f"- Class counts: {feature_summary.get('class_counts', {})}",
+        f"- Subject normalization enabled: {feature_summary.get('subject_normalization_enabled', 'n/a')}",
+        (
+            "- Feature groups (base / z-normalized): "
+            f"{feature_summary.get('base_feature_group_count', 'n/a')} / "
+            f"{feature_summary.get('z_feature_group_count', 'n/a')}"
+        ),
         "",
         "## Modeling",
         f"- Subjects in CV: {model_summary.get('n_subjects', 'n/a')}",
         f"- CV folds: {model_summary.get('n_splits', 'n/a')}",
         f"- Mean balanced accuracy (model): {model_summary.get('mean_model_balanced_accuracy', 'n/a')}",
         f"- Mean balanced accuracy (baseline): {model_summary.get('mean_baseline_balanced_accuracy', 'n/a')}",
+        f"- Decision threshold strategy: {model_summary.get('decision_threshold_strategy', 'n/a')}",
+        f"- Mean applied threshold: {model_summary.get('mean_applied_threshold', 'n/a')}",
         f"- ROC AUC: {model_summary.get('roc_auc', 'n/a')}",
         f"- Confusion matrix (TN, FP, FN, TP): ({tn}, {fp}, {fn}, {tp})",
         "",

@@ -10,14 +10,18 @@
 - EEG files skipped: 1
 - Trial rows in feature table: 58963
 - Class counts: {'Frequent_NonTarget': 47171, 'Rare_Target': 11792}
+- Subject normalization enabled: True
+- Feature groups (base / z-normalized): 15 / 15
 
 ## Modeling
 - Subjects in CV: 285
 - CV folds: 5
-- Mean balanced accuracy (model): 0.5783009385900147
+- Mean balanced accuracy (model): 0.6081258625383577
 - Mean balanced accuracy (baseline): 0.5
-- ROC AUC: 0.6082288207341247
-- Confusion matrix (TN, FP, FN, TP): (26327, 20844, 4735, 7057)
+- Decision threshold strategy: train_balanced_optimal
+- Mean applied threshold: 0.5
+- ROC AUC: 0.6467288195979253
+- Confusion matrix (TN, FP, FN, TP): (29058, 18113, 4714, 7078)
 
 ## Figures
 - Class balance: ../outputs/figures/class_balance.png
@@ -27,5 +31,5 @@
 - ROC curve: ../outputs/figures/roc_curve.png
 
 ## Interpretation
-- Model minus baseline (balanced accuracy): 0.07830093859001475
+- Model minus baseline (balanced accuracy): 0.10812586253835765
 - Current signal-feature pipeline shows above-chance decoding on subject-wise CV.
