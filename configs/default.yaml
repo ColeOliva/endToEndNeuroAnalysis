@@ -39,5 +39,5 @@ execution:
   run_preprocessing: true
   run_features: true
   run_modeling: true
-  run_visualization: false
+  run_visualization: true
   dry_run: true
