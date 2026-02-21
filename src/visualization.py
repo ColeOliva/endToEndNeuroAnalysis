@@ -23,6 +23,23 @@ def _load_fold_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(stream))
 
 
+def _load_roc_rows(path: Path) -> list[dict[str, float]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+    parsed: list[dict[str, float]] = []
+    for row in rows:
+        parsed.append(
+            {
+                "fpr": float(row["fpr"]),
+                "tpr": float(row["tpr"]),
+                "threshold": float(row["threshold"]),
+            }
+        )
+    return parsed
+
+
 def make_figures(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
     """Generate key QC/model figures for reporting."""
     try:
@@ -93,6 +110,56 @@ def make_figures(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
         fig.tight_layout()
 
         out_path = figures_dir / "mean_balanced_accuracy.png"
+        fig.savefig(out_path, dpi=150)
+        plt.close(fig)
+        created_figures.append(str(out_path))
+
+    confusion = model_summary.get("confusion_matrix", {}) if isinstance(model_summary, dict) else {}
+    if isinstance(confusion, dict) and {"tn", "fp", "fn", "tp"}.issubset(confusion.keys()):
+        tn = int(confusion["tn"])
+        fp = int(confusion["fp"])
+        fn = int(confusion["fn"])
+        tp = int(confusion["tp"])
+
+        matrix = [[tn, fp], [fn, tp]]
+        fig, ax = plt.subplots(figsize=(5, 4))
+        image = ax.imshow(matrix)
+        ax.set_title("Confusion Matrix")
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("True")
+        ax.set_xticks([0, 1])
+        ax.set_yticks([0, 1])
+        ax.set_xticklabels(["NonTarget", "Target"])
+        ax.set_yticklabels(["NonTarget", "Target"])
+        for i in range(2):
+            for j in range(2):
+                ax.text(j, i, str(matrix[i][j]), ha="center", va="center")
+        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+        fig.tight_layout()
+
+        out_path = figures_dir / "confusion_matrix.png"
+        fig.savefig(out_path, dpi=150)
+        plt.close(fig)
+        created_figures.append(str(out_path))
+
+    roc_rows = _load_roc_rows(metrics_dir / "roc_curve_points.csv")
+    roc_auc = float(model_summary.get("roc_auc", 0.0)) if isinstance(model_summary, dict) else 0.0
+    if roc_rows:
+        fpr = [row["fpr"] for row in roc_rows]
+        tpr = [row["tpr"] for row in roc_rows]
+
+        fig, ax = plt.subplots(figsize=(5, 4))
+        ax.plot(fpr, tpr, label=f"Model (AUC={roc_auc:.3f})")
+        ax.plot([0, 1], [0, 1], linestyle="--", label="Chance")
+        ax.set_title("ROC Curve")
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
+        ax.set_xlim(0.0, 1.0)
+        ax.set_ylim(0.0, 1.0)
+        ax.legend()
+        fig.tight_layout()
+
+        out_path = figures_dir / "roc_curve.png"
         fig.savefig(out_path, dpi=150)
         plt.close(fig)
         created_figures.append(str(out_path))

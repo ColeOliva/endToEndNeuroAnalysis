@@ -40,4 +40,5 @@ execution:
   run_features: true
   run_modeling: true
   run_visualization: true
+  run_reporting: true
   dry_run: true

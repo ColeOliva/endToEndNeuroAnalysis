@@ -15,6 +15,7 @@ from .io_bids import (build_eeg_index, summarize_eeg_index, validate_bids_root,
                       write_eeg_index_csv)
 from .modeling import run_modeling
 from .preprocess import run_preprocessing
+from .reporting import generate_results_report
 from .visualization import make_figures
 
 LOGGER = logging.getLogger(__name__)
@@ -175,6 +176,7 @@ def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) ->
         ("run_features", extract_features, "Feature extraction"),
         ("run_modeling", run_modeling, "Modeling"),
         ("run_visualization", make_figures, "Visualization"),
+        ("run_reporting", generate_results_report, "Reporting"),
     ]
 
     for config_key, step_fn, display_name in steps:
@@ -210,6 +212,14 @@ def run_pipeline(config: dict[str, Any], project_root: Path, run_steps: bool) ->
                     outputs_dir=outputs_dir,
                 )
                 LOGGER.info("Visualization artifacts: %s", step_result)
+            elif config_key == "run_reporting":
+                report_dir = project_root / "report"
+                step_result = step_fn(
+                    config=config,
+                    outputs_dir=outputs_dir,
+                    report_dir=report_dir,
+                )
+                LOGGER.info("Reporting artifacts: %s", step_result)
             else:
                 step_fn()
             LOGGER.info("Finished %s.", display_name)

@@ -77,6 +77,8 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
     """Train and evaluate a baseline logistic regression model with subject-wise CV."""
     try:
         from sklearn.linear_model import LogisticRegression
+        from sklearn.metrics import roc_auc_score
+        from sklearn.metrics import roc_curve
         from sklearn.model_selection import GroupKFold
         from sklearn.pipeline import Pipeline
         from sklearn.preprocessing import StandardScaler
@@ -128,6 +130,7 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
     fold_rows: list[dict[str, object]] = []
     model_scores: list[float] = []
     baseline_scores: list[float] = []
+    prediction_rows: list[dict[str, object]] = []
 
     for fold_idx, (train_idx, test_idx) in enumerate(splitter.split(X, y, groups), start=1):
         X_train = [X[i] for i in train_idx]
@@ -137,6 +140,7 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
 
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test).tolist()
+        y_score = model.predict_proba(X_test)[:, 1].tolist()
 
         majority_label = Counter(y_train).most_common(1)[0][0]
         y_base = [majority_label for _ in y_test]
@@ -159,6 +163,17 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
             }
         )
 
+        for local_idx, global_idx in enumerate(test_idx):
+            prediction_rows.append(
+                {
+                    "fold": fold_idx,
+                    "subject": groups[global_idx],
+                    "y_true": y_test[local_idx],
+                    "y_pred": y_pred[local_idx],
+                    "y_score": y_score[local_idx],
+                }
+            )
+
     metrics_dir = outputs_dir / "metrics"
     tables_dir = outputs_dir / "tables"
     metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -169,6 +184,37 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
         writer = csv.DictWriter(stream, fieldnames=list(fold_rows[0].keys()))
         writer.writeheader()
         writer.writerows(fold_rows)
+
+    predictions_path = tables_dir / "modeling_predictions.csv"
+    with predictions_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(prediction_rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(prediction_rows)
+
+    y_true_all = [int(row["y_true"]) for row in prediction_rows]
+    y_pred_all = [int(row["y_pred"]) for row in prediction_rows]
+    y_score_all = [float(row["y_score"]) for row in prediction_rows]
+
+    tp = sum(1 for truth, pred in zip(y_true_all, y_pred_all) if truth == 1 and pred == 1)
+    tn = sum(1 for truth, pred in zip(y_true_all, y_pred_all) if truth == 0 and pred == 0)
+    fp = sum(1 for truth, pred in zip(y_true_all, y_pred_all) if truth == 0 and pred == 1)
+    fn = sum(1 for truth, pred in zip(y_true_all, y_pred_all) if truth == 1 and pred == 0)
+
+    roc_auc = float(roc_auc_score(y_true_all, y_score_all)) if len(set(y_true_all)) > 1 else 0.0
+    fpr, tpr, thresholds = roc_curve(y_true_all, y_score_all)
+
+    roc_path = metrics_dir / "roc_curve_points.csv"
+    with roc_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=["fpr", "tpr", "threshold"])
+        writer.writeheader()
+        for fpr_value, tpr_value, threshold in zip(fpr.tolist(), tpr.tolist(), thresholds.tolist()):
+            writer.writerow(
+                {
+                    "fpr": fpr_value,
+                    "tpr": tpr_value,
+                    "threshold": threshold,
+                }
+            )
 
     summary = {
         "n_rows": len(rows),
@@ -181,6 +227,13 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
         "std_baseline_balanced_accuracy": statistics.pstdev(baseline_scores)
         if len(baseline_scores) > 1
         else 0.0,
+        "confusion_matrix": {
+            "tn": tn,
+            "fp": fp,
+            "fn": fn,
+            "tp": tp,
+        },
+        "roc_auc": roc_auc,
     }
 
     summary_path = metrics_dir / "modeling_baseline_metrics.json"
@@ -189,6 +242,9 @@ def run_modeling(config: dict[str, Any], outputs_dir: Path) -> dict[str, Any]:
 
     return {
         "fold_metrics_output": str(folds_path),
+        "predictions_output": str(predictions_path),
+        "roc_points_output": str(roc_path),
         "summary_output": str(summary_path),
         "mean_model_balanced_accuracy": summary["mean_model_balanced_accuracy"],
+        "roc_auc": roc_auc,
     }
