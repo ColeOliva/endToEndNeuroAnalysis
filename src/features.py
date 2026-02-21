@@ -8,6 +8,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 
 def _load_mne_or_raise() -> Any:
     try:
@@ -47,6 +49,37 @@ def _coerce_float(value: str | None, default: float = 0.0) -> float:
 def _coerce_int(value: str | None, default: int = 0) -> int:
     if value is None:
         return default
+    value = value.strip()
+    if not value or value.lower() == "n/a":
+        return default
+    try:
+        return int(float(value))
+    except ValueError:
+        return default
+
+
+def _bandpower_features(
+    waveform: np.ndarray,
+    sfreq: float,
+    bands: dict[str, tuple[float, float]],
+) -> dict[str, float]:
+    if waveform.size == 0:
+        return {f"bandpower_{name}": 0.0 for name in bands}
+
+    signal = waveform - waveform.mean()
+    spectrum = np.fft.rfft(signal)
+    power = np.abs(spectrum) ** 2
+    freqs = np.fft.rfftfreq(signal.size, d=1.0 / sfreq)
+
+    total_power = float(power.sum()) if power.size else 0.0
+    features: dict[str, float] = {}
+    for name, (f_lo, f_hi) in bands.items():
+        mask = (freqs >= f_lo) & (freqs <= f_hi)
+        band_power = float(power[mask].sum()) if np.any(mask) else 0.0
+        features[f"bandpower_{name}"] = band_power
+        features[f"bandpower_{name}_rel"] = (band_power / total_power) if total_power > 0 else 0.0
+
+    return features
 
 
 def _extract_waveform_features(
@@ -57,6 +90,7 @@ def _extract_waveform_features(
     baseline_start: float,
     baseline_end: float,
     windows: list[tuple[str, float, float]],
+    bands: dict[str, tuple[float, float]],
 ) -> dict[str, float] | None:
     sfreq = float(raw.info["sfreq"])
     onset_sample = int(round(onset_sec * sfreq))
@@ -104,14 +138,11 @@ def _extract_waveform_features(
     features["erp_peak_pos"] = float(global_waveform.max())
     features["erp_peak_neg"] = float(global_waveform.min())
     features["erp_peak_to_peak"] = float(features["erp_peak_pos"] - features["erp_peak_neg"])
+    features["erp_mean_abs"] = float(np.mean(np.abs(global_waveform)))
+    features["erp_std"] = float(np.std(global_waveform))
+    features["erp_auc_abs"] = float(np.trapezoid(np.abs(global_waveform), dx=1.0 / sfreq))
+    features.update(_bandpower_features(global_waveform, sfreq=sfreq, bands=bands))
     return features
-    value = value.strip()
-    if not value or value.lower() == "n/a":
-        return default
-    try:
-        return int(float(value))
-    except ValueError:
-        return default
 
 
 def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path) -> dict[str, Any]:
@@ -152,6 +183,20 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
         for name, bounds in windows_cfg.items():
             if isinstance(bounds, list) and len(bounds) == 2:
                 windows.append((str(name), float(bounds[0]), float(bounds[1])))
+
+    bands_cfg = analysis_cfg.get(
+        "bandpower_bands",
+        {
+            "theta": [4.0, 7.0],
+            "alpha": [8.0, 12.0],
+            "beta": [13.0, 30.0],
+        },
+    )
+    bands: dict[str, tuple[float, float]] = {}
+    if isinstance(bands_cfg, dict):
+        for name, bounds in bands_cfg.items():
+            if isinstance(bounds, list) and len(bounds) == 2:
+                bands[str(name)] = (float(bounds[0]), float(bounds[1]))
 
     levels = _load_event_levels(bids_root, task_name)
 
@@ -212,6 +257,7 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
                     baseline_start=baseline_start,
                     baseline_end=baseline_end,
                     windows=windows,
+                    bands=bands,
                 )
                 if waveform_features is None:
                     continue
@@ -272,6 +318,7 @@ def extract_features(config: dict[str, Any], bids_root: Path, outputs_dir: Path)
         "task_name": task_name,
         "class_counts": dict(class_counter),
         "erp_windows": {name: [start, end] for name, start, end in windows},
+        "bandpower_bands": {name: [lo, hi] for name, (lo, hi) in bands.items()},
     }
 
     summary_path = metrics_dir / "baseline_feature_summary.json"

@@ -14,10 +14,10 @@
 ## Modeling
 - Subjects in CV: 16
 - CV folds: 5
-- Mean balanced accuracy (model): 0.5753737567805867
+- Mean balanced accuracy (model): 0.6259722095353096
 - Mean balanced accuracy (baseline): 0.5
-- ROC AUC: 0.6175090372051473
-- Confusion matrix (TN, FP, FN, TP): (1160, 1126, 202, 367)
+- ROC AUC: 0.6716461628588166
+- Confusion matrix (TN, FP, FN, TP): (1302, 984, 181, 388)
 
 ## Figures
 - Class balance: ../outputs/figures/class_balance.png
@@ -27,5 +27,5 @@
 - ROC curve: ../outputs/figures/roc_curve.png
 
 ## Interpretation
-- Model minus baseline (balanced accuracy): 0.07537375678058666
+- Model minus baseline (balanced accuracy): 0.12597220953530963
 - Current signal-feature pipeline shows above-chance decoding on subject-wise CV.

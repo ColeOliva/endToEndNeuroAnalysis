@@ -19,6 +19,10 @@ analysis:
     erp_n1: [0.08, 0.14]
     erp_p2: [0.15, 0.25]
     erp_p3: [0.25, 0.5]
+  bandpower_bands:
+    theta: [4.0, 7.0]
+    alpha: [8.0, 12.0]
+    beta: [13.0, 30.0]
 
 preprocessing:
   l_freq: 1.0
@@ -35,7 +39,7 @@ modeling:
   n_splits: 5
 
 final_run:
-  enabled: true
+  enabled: false
   final_run_id: ds007056_v1_1_1_final_2026_02_20
   lock_execution: true
   lock_parameters: true
